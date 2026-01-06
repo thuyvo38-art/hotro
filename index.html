@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tính Hỗ Trợ Tuyển Than Hòn Gai</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 15px; background-color: #f4f7f6; color: #333; }
+        .container { max-width: 500px; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin: auto; }
+        h2 { color: #0056b3; text-align: center; font-size: 1.4em; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9em; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1em; }
+        input[readonly] { background-color: #eee; cursor: not-allowed; }
+        button { width: 100%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 6px; font-size: 1.1em; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .result { margin-top: 20px; padding: 15px; border-radius: 8px; background: #e9f7ef; display: none; }
+        .result p { margin: 8px 0; border-bottom: 1px dashed #ccc; padding-bottom: 5px; }
+        .total { font-weight: bold; color: #d9534f; font-size: 1.2em; border-bottom: none !important; }
+        .footer { text-align: center; font-size: 0.8em; color: #777; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>DỰ TOÁN HỖ TRỢ LAO ĐỘNG</h2>
+    
+    <div class="form-group">
+        <label>Họ và tên</label>
+        <input type="text" id="fullname" placeholder="Nhập họ tên...">
+    </div>
+
+    <div class="form-group">
+        <label>Giới tính</label>
+        <select id="gender">
+            <option value="Nam">Nam</option>
+            <option value="Nữ">Nữ</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Hình thức nghỉ</label>
+        <select id="type_retired" onchange="toggleInputs()">
+            <option value="termination">Chấm dứt HĐLĐ (Thôi việc)</option>
+            <option value="pension">Nghỉ hưu trước tuổi</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Diện sắp xếp lao động</label>
+        <select id="category" onchange="updateFactor()">
+            <option value="absolute">Giảm tuyệt đối (Dôi dư)</option>
+            <option value="innovation">Giảm không tuyệt đối (Đổi mới cơ cấu)</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Hệ số hỗ trợ (Tự động)</label>
+        <input type="number" id="factor" value="1.5" readonly>
+    </div>
+
+    <div id="div_years_work" class="form-group">
+        <label>Số năm công tác đóng BHXH (năm)</label>
+        <input type="number" id="years_work" step="0.5" placeholder="Ví dụ: 15.5">
+    </div>
+
+    <div id="div_years_early" class="form-group" style="display:none;">
+        <label>Số năm nghỉ hưu sớm (năm)</label>
+        <input type="number" id="years_early" step="0.5" placeholder="Ví dụ: 3">
+    </div>
+
+    <button onclick="calculate()">TÍNH TOÁN</button>
+
+    <div id="result" class="result">
+        <p id="res_tkv"></p>
+        <p id="res_company"></p>
+        <p id="res_union"></p>
+        <p class="total" id="res_total"></p>
+    </div>
+    
+    <div class="footer">Công ty Tuyển than Hòn Gai - Vinacomin<br>Dựa trên QĐ 2299 & NQLT 6667</div>
+</div>
+
+<script>
+    const MIN_WAGE = 3450000; // Lương tối thiểu vùng IV [cite: 1756]
+
+    function updateFactor() {
+        const cat = document.getElementById('category').value;
+        document.getElementById('factor').value = (cat === 'absolute') ? 1.5 : 0.75;
+    }
+
+    function toggleInputs() {
+        const type = document.getElementById('type_retired').value;
+        document.getElementById('div_years_work').style.display = (type === 'termination') ? 'block' : 'none';
+        document.getElementById('div_years_early').style.display = (type === 'pension') ? 'block' : 'none';
+    }
+
+    function calculate() {
+        const type = document.getElementById('type_retired').value;
+        const cat = document.getElementById('category').value;
+        const factor = parseFloat(document.getElementById('factor').value);
+        
+        let tkvSupport = 0;
+        let companySupport = 0;
+        let unionSupport = 1000000; // Hỗ trợ Công đoàn mặc định [cite: 1983]
+
+        if (type === 'termination') {
+            const years = parseFloat(document.getElementById('years_work').value) || 0;
+            // TKV: Hệ số * Lương vùng * Số năm [cite: 1753, 1755]
+            tkvSupport = factor * MIN_WAGE * years;
+            // Công ty: 35% Lương vùng * Số năm (giả định tính từ 2009 tối đa 17 năm) 
+            // Ở đây tạm tính theo số năm nhập vào nhưng giới hạn tối đa 17 năm
+            let yearsForCompany = Math.min(years, 17);
+            companySupport = 0.35 * MIN_WAGE * yearsForCompany;
+        } else {
+            const early = parseFloat(document.getElementById('years_early').value) || 0;
+            // TKV Pension Support Table [cite: 1739-1750]
+            if (cat === 'absolute') {
+                if (early >= 5) tkvSupport = 72 * MIN_WAGE;
+                else if (early >= 4) tkvSupport = 57 * MIN_WAGE;
+                else if (early >= 3) tkvSupport = 42 * MIN_WAGE;
+                else if (early >= 2) tkvSupport = 27 * MIN_WAGE;
+                else if (early >= 1) tkvSupport = 12 * MIN_WAGE;
+            } else {
+                if (early >= 5) tkvSupport = 34 * MIN_WAGE;
+                else if (early >= 4) tkvSupport = 27 * MIN_WAGE;
+                else if (early >= 3) tkvSupport = 20 * MIN_WAGE;
+                else if (early >= 2) tkvSupport = 13 * MIN_WAGE;
+                else if (early >= 1) tkvSupport = 6 * MIN_WAGE;
+            }
+            // Company Pension Support (Lump sum) 
+            if (early >= 5) companySupport = 10000000;
+            else if (early >= 4) companySupport = 8000000;
+            else if (early >= 3) companySupport = 6000000;
+            else if (early >= 2) companySupport = 4000000;
+            else if (early >= 1) companySupport = 2000000;
+        }
+
+        document.getElementById('result').style.display = 'block';
+        document.getElementById('res_tkv').innerText = "Hỗ trợ TKV: " + tkvSupport.toLocaleString() + " VND";
+        document.getElementById('res_company').innerText = "Hỗ trợ Quỹ phúc lợi: " + companySupport.toLocaleString() + " VND";
+        document.getElementById('res_union').innerText = "Hỗ trợ Công đoàn: " + unionSupport.toLocaleString() + " VND";
+        document.getElementById('res_total').innerText = "TỔNG CỘNG: " + (tkvSupport + companySupport + unionSupport).toLocaleString() + " VND";
+    }
+</script>
+</body>
+</html>
